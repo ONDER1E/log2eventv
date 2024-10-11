@@ -27,9 +27,10 @@ def main():
     class LogFileHandler(FileSystemEventHandler):
         def __init__(self, file_path):
             self.file_path = file_path
-            self.last_position = 0
+            self.last_position = 0  # Track the last read position
 
         def on_modified(self, event):
+            # Triggered when the file is modified
             if event.src_path == self.file_path:
                 with open(self.file_path, 'r') as file:
                     file.seek(self.last_position)  # Go to the last read position
@@ -42,13 +43,14 @@ def main():
 
         def write_to_event_log(self, message):
             try:
+                # Report the event to Windows Event Log
                 win32evtlogutil.ReportEvent(
                     source_name,  # Source
                     event_id,  # Event ID
                     eventCategory=event_category,  # Event category
                     eventType=event_type,  # Event type
                     strings=[message],  # Log message
-                    data=b'Python log data'  # Optional data (can be omitted)
+                    data=b'Python log data'  # Optional data
                 )
                 print(f"Forwarded log to Windows Event Log: {message}")
             except Exception as e:
@@ -65,18 +67,19 @@ def main():
     except Exception as e:
         print(f"Source may already exist or another error: {e}")
 
-    # Create the file observer
+    # Set up the observer and file handler for file changes
     event_handler = LogFileHandler(log_file_path)
     observer = Observer()
     observer.schedule(event_handler, path=log_file_path, recursive=False)
 
-    # Start the observer
+    # Start the observer to listen for file changes
     observer.start()
 
     try:
-        while True:
-            time.sleep(polling_interval_seconds)  # Use polling interval from config.json
+        # Run indefinitely, listening for file changes
+        observer.join()
     except KeyboardInterrupt:
+        # Stop the observer when interrupted (Ctrl+C)
         observer.stop()
 
     observer.join()
@@ -198,5 +201,5 @@ if __name__ == "__main__":
             with open(cache_file_path) as f:
                 first_line = f.readline().strip('\n')
             print("After this step you are", str(int((error_count / int(first_line)) * 100)) + f"% done with the setup.")
-        
-        
+    else:
+        main()
