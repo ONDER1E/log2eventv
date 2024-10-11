@@ -5,7 +5,7 @@ def main():
 
     # Load settings from config.json
     log_file_path = os.environ['USERPROFILE']+r"\Documents\log2eventv\config.json"
-    with open(config_file_path, 'r') as log_file_path:
+    with open(config_file_path, 'r') as config_file:
         config = json.load(config_file)
 
     source_name = config['event_source_name']
