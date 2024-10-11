@@ -1,10 +1,13 @@
 def main():
+    cache_file_path = os.environ['USERPROFILE']+r"\Documents\log2eventv\.cache"
+    if os.path.exists(cache_file_path):
+        os.remove(cache_file_path)
 
     # Load settings from config.json
-    with open(os.environ['USERPROFILE']+r"\Documents\log2eventv.py\config.json", 'r') as config_file:
+    log_file_path = os.environ['USERPROFILE']+r"\Documents\log2eventv\config.json"
+    with open(config_file_path, 'r') as log_file_path:
         config = json.load(config_file)
 
-    log_file_path = os.environ['USERPROFILE']+r"\Documents\log2eventv\config.json"
     source_name = config['event_source_name']
     log_type = config['event_log_type']
     event_id = config['event_id']
@@ -148,7 +151,6 @@ if __name__ == "__main__":
     copy_hint = "To copy in the windows console it's enter not ctrl+c"
     error_count = 0
     config_file_path = os.environ['USERPROFILE']+r"\Documents\log2eventv\config.json"
-    print(config_file_path)
     if platform != "win32":
         print("Platform is Windows only.")
         error_count += 1
@@ -172,7 +174,7 @@ if __name__ == "__main__":
         if not os.path.exists(directory):
             os.makedirs(directory)
         
-        f = open(config_file_path)
+        f = open(config_file_path, "w")
         f.write("""{
   "event_source_name": "PythonLogSource",
   "event_log_type": "Application",
@@ -182,6 +184,17 @@ if __name__ == "__main__":
   "polling_interval_seconds": 5
 }""")
         f.close()
+        print("go to", config_file_path, "to configure settings")
+        print(copy_hint)
+        error_count += 1
 
     if error_count > 0:
+        cache_file_path = os.environ['USERPROFILE']+r"\Documents\log2eventv\.cache"
+        if os.path.exists(cache_file_path):
+            with open(cache_file_path) as f:
+                first_line = f.readline().strip('\n')
+        else:
+            f = open(config_file_path, "w")
+            f.write(error_count)
         print("THEN RUN THIS FILE AGAIN")
+        print("After this step you are", error_count / first_line, )
