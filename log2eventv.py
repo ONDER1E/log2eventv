@@ -190,11 +190,13 @@ if __name__ == "__main__":
 
     if error_count > 0:
         cache_file_path = os.environ['USERPROFILE']+r"\Documents\log2eventv\.cache"
+        print("THEN RUN THIS FILE AGAIN")
+        if not os.path.exists(cache_file_path):
+            f = open(cache_file_path, "w")
+            f.write(str(error_count))
         if os.path.exists(cache_file_path):
             with open(cache_file_path) as f:
                 first_line = f.readline().strip('\n')
-        else:
-            f = open(config_file_path, "w")
-            f.write(error_count)
-        print("THEN RUN THIS FILE AGAIN")
-        print("After this step you are", error_count / first_line, )
+            print("After this step you are", str(int((error_count / int(first_line)) * 100)) + f"% done with the setup.")
+        
+        
