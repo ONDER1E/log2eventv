@@ -3,17 +3,13 @@ def main():
     if os.path.exists(cache_file_path):
         os.remove(cache_file_path)
 
-    # Load settings from config.json
-    log_file_path = os.environ['USERPROFILE']+r"\Documents\log2eventv\config.json"
-    with open(config_file_path, 'r') as config_file:
+    with open(config_file_path, 'r', encoding="utf8") as config_file:
         config = json.load(config_file)
 
     source_name = config['event_source_name']
-    log_type = config['event_log_type']
     event_id = config['event_id']
     event_category = config['event_category']
     event_type = config['event_type']
-    polling_interval_seconds = config['polling_interval_seconds']
 
     # Map event type from string to win32 constant
     event_type_mapping = {
@@ -23,23 +19,43 @@ def main():
     }
     event_type = event_type_mapping.get(event_type, win32evtlog.EVENTLOG_INFORMATION_TYPE)
 
-    # Create a class to handle file changes
-    class LogFileHandler(FileSystemEventHandler):
+    class FileChangeHandler(FileSystemEventHandler):
         def __init__(self, file_path):
             self.file_path = file_path
-            self.last_position = 0  # Track the last read position
+            self.last_known_lines = self.get_current_lines()
 
         def on_modified(self, event):
-            # Triggered when the file is modified
-            if event.src_path == self.file_path:
-                with open(self.file_path, 'r') as file:
-                    file.seek(self.last_position)  # Go to the last read position
-                    new_logs = file.read()  # Read any new content
+            
+            # Check if the modified file is the one we are watching
+            if os.path.abspath(event.src_path) == os.path.abspath(self.file_path):
+                self.print_new_content()
 
-                    if new_logs:  # If new log content is available
-                        for line in new_logs.splitlines():
-                            self.write_to_event_log(line)
-                    self.last_position = file.tell()  # Update the last read position
+        def get_current_lines(self):
+            """Reads and returns the current lines from the file."""
+            try:
+                with open(self.file_path, 'r', encoding="utf8") as file:
+                    return file.readlines()
+            except FileNotFoundError:
+                print(f"File '{self.file_path}' not found.")
+                return []
+
+        def print_new_content(self):
+            """Compares the new file content with the previous one and prints only the new lines."""
+            current_lines = self.get_current_lines()
+            
+            # Find the new lines by comparing with the last known lines
+            new_lines = current_lines[len(self.last_known_lines):]
+            
+            if new_lines:
+                for line in new_lines:
+                    self.write_to_event_log(line)
+            else:
+                print("No new content added.")
+            
+            # Update the last known lines
+            self.last_known_lines = current_lines
+
+        
 
         def write_to_event_log(self, message):
             try:
@@ -56,36 +72,31 @@ def main():
             except Exception as e:
                 print(f"Failed to write to Event Log: {e}")
 
-    # Create the event source (if it doesn't exist already)
-    try:
-        win32evtlogutil.AddSourceToRegistry(
-            source_name,
-            log_type,
-            eventID=event_id,
-            eventCategory=event_category
-        )
-    except Exception as e:
-        print(f"Source may already exist or another error: {e}")
-
-    # Set up the observer and file handler for file changes
-    event_handler = LogFileHandler(log_file_path)
+    # Path to the directory containing the file
+    source_name.split("\\")
+    directory_to_watch = source_name.split("\\")
+    file_to_watch = directory_to_watch.pop()
+    directory_to_watch = "\\".join(directory_to_watch)
+    print(directory_to_watch)
+    print(file_to_watch)
+    
+    
+    # Use os.path.join to ensure proper file path construction for Windows
+    full_file_path = os.path.join(directory_to_watch, file_to_watch)
+    
+    event_handler = FileChangeHandler(full_file_path)
     observer = Observer()
-    observer.schedule(event_handler, path=log_file_path, recursive=False)
+    observer.schedule(event_handler, path=directory_to_watch, recursive=False)
 
-    # Start the observer to listen for file changes
+    # Start observing the directory
     observer.start()
-
     try:
-        # Run indefinitely, listening for file changes
-        observer.join()
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
-        # Stop the observer when interrupted (Ctrl+C)
         observer.stop()
-
     observer.join()
 
-    # Remove event source if needed later (optional)
-    # win32evtlogutil.RemoveSourceFromRegistry(source_name)
 
 if __name__ == "__main__":
     import_error_count = 0
@@ -183,7 +194,7 @@ if __name__ == "__main__":
         if not os.path.exists(directory):
             os.makedirs(directory)
         
-        f = open(config_file_path, "w")
+        f = open(config_file_path, "w", encoding="utf8")
         f.write("""{
   "event_source_name": "PythonLogSource",
   "event_log_type": "Application",
@@ -212,12 +223,12 @@ if __name__ == "__main__":
             directory = os.path.dirname(cache_file_path)
             if not os.path.exists(directory):
                 os.makedirs(directory)
-            with open(cache_file_path, "w") as f:
+            with open(cache_file_path, "w", encoding="utf8") as f:
                 f.write(str(error_count + magic_number))
 
         # If the cache file exists, read the initial error count (denominator)
         if os.path.exists(cache_file_path):
-            with open(cache_file_path) as f:
+            with open(cache_file_path, encoding="utf8") as f:
                 first_line = f.readline().strip('\n')
                 initial_error_count = int(first_line)
 
